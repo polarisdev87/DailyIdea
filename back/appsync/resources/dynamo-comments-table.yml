@@ -1,0 +1,27 @@
+Resources:
+  IdeaCommentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: ideaId
+          AttributeType: S
+        - AttributeName: commentId
+          AttributeType: S
+        - AttributeName: createdDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ideaId
+          KeyType: HASH
+        - AttributeName: commentId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      TableName: ${self:custom.ideaCommentsTableName}
+      GlobalSecondaryIndexes:
+        - IndexName: byDateIndex
+          KeySchema:
+            - AttributeName: ideaId
+              KeyType: HASH
+            - AttributeName: createdDate
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL

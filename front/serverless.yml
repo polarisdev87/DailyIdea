@@ -1,0 +1,93 @@
+service: "dailyidea-serverless-n" # Edit service name
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: ${env:STAGE}
+  region: ${env:AWS_REGION, 'us-east-1'} # Edit region name
+  domainName: ${env:DOMAIN_NAME, 'beta.dailyidea.com'}
+  certificateName: '*.dailyidea.com' # TODO https://github.com/serverless/serverless/issues/4959
+  allowedOrigin: '*'
+  bucketName: dailyidea-serverless-${env:STAGE}
+  environment:
+    NODE_ENV: production
+    APPSYNC_ENDPOINT: ${env:APPSYNC_ENDPOINT, 'https://pdf3pg7nmngzvmwir6dfsw3vye.appsync-api.us-east-1.amazonaws.com/graphql'}
+    REQUEST_LOGIN_ENDPOINT: ${env:REQUEST_LOGIN_ENDPOINT, 'https://pjtzx5m8mk.execute-api.us-east-1.amazonaws.com/dev/requestLogin'}
+    COGNITO_POOL_ID: ${env:COGNITO_POOL_ID, 'us-east-1_JLoaRtnOl'}
+    COGNITO_IDENTITY_POOL_ID: ${env:COGNITO_IDENTITY_POOL_ID, 'us-east-1:0c8780c2-b03a-4751-bce7-06ce942dde78'}
+    COGNITO_POOL_WEB_CLIENT_ID: ${env:COGNITO_POOL_WEB_CLIENT_ID, '6eojplv1g5h1nrvdtho56s3g7f'}
+  iamRoleStatements:
+    - Effect: 'Allow'
+      Action:
+        - 'lambda:InvokeFunction'
+        - lambda:ListAliases
+        - lambda:ListFunctions
+      Resource: "*"
+
+functions:
+  nuxtRenderer:
+    handler: handler.render
+    memorySize: ${env:LAMBDA_MEMORY, '1536'}
+    timeout: 30
+    warmup:
+      enabled: true
+    package:
+      exclude:
+        - src/**
+        - tests/**
+        - .nuxt/dist/client/*.js.map
+        - node_modules/.cache/**
+
+      include:
+        - src/modules/**
+        - src/static/**
+        - serverless.yml
+    events:
+      - http:
+          path: /
+          method: ANY
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+
+resources:
+  - ${file(resources/s3.yml)}
+
+plugins:
+  - serverless-offline
+  - serverless-s3-sync
+  - serverless-domain-manager
+  - serverless-prune-plugin
+  - serverless-plugin-warmup
+
+custom:
+  serverless-offline:
+    port: 4001
+  myStage: ${self:provider.stage}
+  warmup:
+    prewarm: true
+  s3Sync:
+    - bucketName: ${self:provider.bucketName} # Retype the bucket name specified above
+      localDir: .nuxt/dist
+      acl: public-read
+      params: # optional
+        - "*.js":
+            CacheControl: 'public, max-age=31536000'
+        - "img/*.*":
+            CacheControl: 'public, max-age=31536000'
+        - "fonts/*.*":
+            CacheControl: 'public, max-age=31536000'
+        - "icons/*.*":
+            CacheControl: 'public, max-age=31536000'
+        - "*.css":
+            CacheControl: 'public, max-age=31536000'
+        - "*.map":
+            ACL: private
+  customDomain:
+    domainName: ${self:provider.domainName} # Specify a new domain name to be created
+    stage: ${self:provider.stage}
+    certificateName: ${self:provider.certificateName} # Enter the Certificate name with that domain
+    createRoute53Record: false
+

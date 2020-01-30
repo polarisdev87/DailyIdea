@@ -1,0 +1,47 @@
+Resources:
+    IdeasTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: ideaId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: visibility
+            AttributeType: S
+          - AttributeName: authorSlug
+            AttributeType: S
+          - AttributeName: createdDate
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: ideaId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.ideasTableName}
+        GlobalSecondaryIndexes:
+          - IndexName: publicIdeasByDate
+            KeySchema:
+              - AttributeName: visibility
+                KeyType: HASH
+              - AttributeName: createdDate
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: ideasBySlugAndDate
+            KeySchema:
+              - AttributeName: authorSlug
+                KeyType: HASH
+              - AttributeName: createdDate
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: myIdeasByDate
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+              - AttributeName: createdDate
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL

@@ -1,0 +1,84 @@
+#Conditions:
+#  CreateNewSesRuleset: !Equals [!Ref ExistingSesRulesetName, '']
+
+
+Resources:
+  DailyIdeaSesReceiverRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    # Only create if ExistingSesRulesetName is empty
+    #Condition: CreateNewSesRuleset
+    Properties:
+      RuleSetName: DailyIdeaSesReceiverRuleSet
+
+  DailyIdeaSesReceiverRule:
+    Type: AWS::SES::ReceiptRule
+    Properties:
+      # determine whether to use existing or newly created rule set.
+      # https://amzn.to/2NGKRVl
+      # RuleSetName: !If [CreateNewSesRuleset, !Ref DailyIdeaSesReceiverRuleSet, !Ref ExistingSesRulesetName]
+      RuleSetName:
+        Ref: DailyIdeaSesReceiverRuleSet
+      Rule:
+        Name: ReceiptRule
+        Recipients:
+          - ${self:custom.ideasMailBox}@${self:custom.domainName}
+        Enabled: true
+        Actions:
+        - S3Action:
+            BucketName:
+              Ref: SesEmailStorageS3Bucket
+        - LambdaAction:
+            FunctionArn:
+              Fn::GetAtt:
+                - ProcessIncomingMailLambdaFunction
+                - Arn
+
+  DailyIdeaRequestTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: ${self:provider.requestDailyIdeaEmailTemplateName}
+        SubjectPart: '[Daily Idea] Idea for {{ TODAY }}'
+        TextPart: ${file(mail_templates/request_daily_idea/daily_idea.txt)}
+        HtmlPart: ${file(mail_templates/request_daily_idea/daily_idea.html)}
+
+  SesEmailStorageS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: ${self:custom.mailBucket}
+    DeletionPolicy: Retain
+    Description: S3 bucket to hold SES received emails
+  SampleBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: SesEmailStorageS3Bucket
+      PolicyDocument:
+        Statement:
+        - Action:
+          - "s3:PutObject"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              - - "arn:aws:s3:::"
+                - Ref: SesEmailStorageS3Bucket
+                - "/*"
+          Principal:
+            Service:
+              ses.amazonaws.com
+          Condition:
+            StringEquals:
+              aws:Referer:
+                - Ref: AWS::AccountId
+
+  # define what AWS resources can invoke the SesReceivedEmailProcessorLambda
+  LambdaResourcePolicy:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - ProcessIncomingMailLambdaFunction
+          - Arn
+      Principal: ses.amazonaws.com
+      Action: lambda:InvokeFunction

@@ -1,0 +1,23 @@
+Resources:
+  FollowingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: followerId
+          AttributeType: S
+        - AttributeName: followeeId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: followerId
+          KeyType: HASH
+        - AttributeName: followeeId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      TableName: ${self:custom.followingTableName}
+      GlobalSecondaryIndexes:
+        - IndexName: followeeIndex
+          KeySchema:
+            - AttributeName: followeeId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
